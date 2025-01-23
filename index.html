@@ -135,7 +135,7 @@
     function calculateLineWidth(distance, timeDiff) {
       const velocity = distance / timeDiff;
       const minLineWidth = 1;
-      const maxLineWidth = 15;
+      const maxLineWidth = 13;
       const speedFactor = 0.05; // Adjust sensitivity
       return Math.max(minLineWidth, Math.min(maxLineWidth, maxLineWidth - velocity * speedFactor));
     }
