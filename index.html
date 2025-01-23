@@ -33,18 +33,19 @@
       width: 100%;  /* 100% of the container */
       height: 100%; /* 100% of the container */
       touch-action: none;
+      cursor: none; /* Ẩn con trỏ mặc định */
     }
 
-    button {
-      margin: 0 5px;
-      padding: 5px 10px;
-      font-size: 14px;
-      cursor: pointer;
-    }
-
-    button.active {
-      background-color: #007BFF;
-      color: #fff;
+    #customCursor {
+      position: absolute;
+      pointer-events: none; /* Đảm bảo con trỏ không chặn sự kiện chuột */
+      z-index: 10000; /* Hiển thị trên cùng */
+      width: 200px; /* Kích thước con trỏ (thay đổi nếu cần) */
+      height: 200px;
+      background-image: url('hand-write.png'); /* Đường dẫn hình ảnh bàn tay cầm bút */
+      background-size: contain;
+      background-repeat: no-repeat;
+      transform: translate(-40%, -30%); /* Đưa tâm con trỏ về giữa */
     }
   </style>
 </head>
@@ -60,7 +61,7 @@
     <canvas id="textCanvas"></canvas>
     <canvas id="drawingCanvas"></canvas>
   </div>
-
+  <div id="customCursor"></div>
   <script>
     const textCanvas = document.getElementById('textCanvas');
     const drawingCanvas = document.getElementById('drawingCanvas');
@@ -71,6 +72,7 @@
     const drawButton = document.getElementById('drawButton');
     const eraseButton = document.getElementById('eraseButton');
     const clearButton = document.getElementById('clearButton'); // Lấy nút Clear
+    const customCursor = document.getElementById('customCursor');
 
     function setCanvasDimensions() {
       textCanvas.width = textCanvas.clientWidth; // Set width
@@ -117,17 +119,61 @@
       isErasing = false;
       drawButton.classList.add('active');
       eraseButton.classList.remove('active');
+      customCursor.style.backgroundImage = "url('hand-write.png')";
     });
 
     eraseButton.addEventListener('click', () => {
       isErasing = true;
       eraseButton.classList.add('active');
       drawButton.classList.remove('active');
+      customCursor.style.backgroundImage = "url('hand-wipe.png')";
     });
 
     // Clear button event listener
     clearButton.addEventListener('click', () => {
       ctxDraw.clearRect(0, 0, drawingCanvas.width, drawingCanvas.height); // Xóa toàn bộ nét vẽ
+    });
+
+    // Update custom cursor position for mouse
+    document.addEventListener('mousemove', (e) => {
+      customCursor.style.left = `${e.pageX}px`;
+      customCursor.style.top = `${e.pageY}px`;
+    });
+
+    // Update custom cursor position for touch
+    drawingCanvas.addEventListener('touchmove', (e) => {
+      const rect = drawingCanvas.getBoundingClientRect();
+      const touch = e.touches[0];
+      const cursorX = touch.clientX - rect.left;
+      const cursorY = touch.clientY - rect.top;
+
+      // Cập nhật vị trí của customCursor
+      customCursor.style.left = `${cursorX}px`;
+      customCursor.style.top = `${cursorY}px`;
+
+      // Cập nhật vị trí nét vẽ
+      if (isDrawing) {
+        ctxDraw.lineTo(cursorX, cursorY);
+        ctxDraw.strokeStyle = isErasing ? 'white' : 'black'; // Màu nét vẽ
+        ctxDraw.stroke();
+      }
+    });
+
+    // Hide custom cursor over input and button
+    textInput.addEventListener('mouseenter', () => {
+      customCursor.style.display = 'none';
+    });
+    textInput.addEventListener('mouseleave', () => {
+      customCursor.style.display = 'block';
+    });
+
+    document.querySelectorAll('#controls button').forEach(button => {
+      button.addEventListener('mouseenter', () => {
+        customCursor.style.display = 'none';
+      });
+      button.addEventListener('mouseleave', () => {
+        customCursor.style.display = 'block';
+      });
     });
 
     // Calculate dynamic line width
