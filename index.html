@@ -5,7 +5,6 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
   <title>Draw Over Text on Canvas</title>
   <style>
-    
     body {
       margin: 0;
       display: flex;
@@ -34,18 +33,19 @@
       width: 100%;  /* 100% of the container */
       height: 100%; /* 100% of the container */
       touch-action: none;
+      cursor: none; /* Ẩn con trỏ mặc định */
     }
 
-    button {
-      margin: 0 5px;
-      padding: 5px 10px;
-      font-size: 14px;
-      cursor: pointer;
-    }
-
-    button.active {
-      background-color: #007BFF;
-      color: #fff;
+    #customCursor {
+      position: absolute;
+      pointer-events: none; /* Đảm bảo con trỏ không chặn sự kiện chuột */
+      z-index: 10000; /* Hiển thị trên cùng */
+      width: 500px; /* Kích thước con trỏ (thay đổi nếu cần) */
+      height: 500px;
+      background-image: url('hand-write.png'); /* Đường dẫn hình ảnh bàn tay cầm bút */
+      background-size: contain;
+      background-repeat: no-repeat;
+      transform: translate(-37%, -27%); /* Đưa tâm con trỏ về giữa */
     }
   </style>
 </head>
@@ -61,7 +61,7 @@
     <canvas id="textCanvas"></canvas>
     <canvas id="drawingCanvas"></canvas>
   </div>
-
+  <div id="customCursor"></div>
   <script>
     const textCanvas = document.getElementById('textCanvas');
     const drawingCanvas = document.getElementById('drawingCanvas');
@@ -72,6 +72,7 @@
     const drawButton = document.getElementById('drawButton');
     const eraseButton = document.getElementById('eraseButton');
     const clearButton = document.getElementById('clearButton'); // Lấy nút Clear
+    const customCursor = document.getElementById('customCursor');
 
     function setCanvasDimensions() {
       textCanvas.width = textCanvas.clientWidth; // Set width
@@ -91,7 +92,7 @@
     // Function to render text on text canvas
     function renderTextOnCanvas() {
       ctxText.clearRect(0, 0, textCanvas.width, textCanvas.height); // Clear text canvas
-      ctxText.font = '250px Arial'; // Set font
+      ctxText.font = '200px Arial'; // Set font
       ctxText.fillStyle = 'rgba(0, 0, 0, 0.2)'; // Black text with 50% opacity
       ctxText.textAlign = 'center'; // Center align text
       ctxText.textBaseline = 'middle'; // Center vertically
@@ -118,12 +119,14 @@
       isErasing = false;
       drawButton.classList.add('active');
       eraseButton.classList.remove('active');
+      customCursor.style.backgroundImage = "url('hand-write.png')";
     });
 
     eraseButton.addEventListener('click', () => {
       isErasing = true;
       eraseButton.classList.add('active');
       drawButton.classList.remove('active');
+      customCursor.style.backgroundImage = "url('hand-wipe.png')";
     });
 
     // Clear button event listener
@@ -131,11 +134,53 @@
       ctxDraw.clearRect(0, 0, drawingCanvas.width, drawingCanvas.height); // Xóa toàn bộ nét vẽ
     });
 
+    // Update custom cursor position for mouse
+    document.addEventListener('mousemove', (e) => {
+      customCursor.style.left = `${e.pageX}px`;
+      customCursor.style.top = `${e.pageY}px`;
+    });
+
+    // Update custom cursor position for touch
+    drawingCanvas.addEventListener('touchmove', (e) => {
+      const rect = drawingCanvas.getBoundingClientRect();
+      const touch = e.touches[0];
+      const cursorX = touch.clientX - rect.left;
+      const cursorY = touch.clientY - rect.top;
+
+      // Cập nhật vị trí của customCursor
+      customCursor.style.left = `${cursorX}px`;
+      customCursor.style.top = `${cursorY}px`;
+
+      // Cập nhật vị trí nét vẽ
+      if (isDrawing) {
+        ctxDraw.lineTo(cursorX, cursorY);
+        ctxDraw.strokeStyle = isErasing ? 'white' : 'black'; // Màu nét vẽ
+        ctxDraw.stroke();
+      }
+    });
+
+    // Hide custom cursor over input and button
+    textInput.addEventListener('mouseenter', () => {
+      customCursor.style.display = 'none';
+    });
+    textInput.addEventListener('mouseleave', () => {
+      customCursor.style.display = 'block';
+    });
+
+    document.querySelectorAll('#controls button').forEach(button => {
+      button.addEventListener('mouseenter', () => {
+        customCursor.style.display = 'none';
+      });
+      button.addEventListener('mouseleave', () => {
+        customCursor.style.display = 'block';
+      });
+    });
+
     // Calculate dynamic line width
     function calculateLineWidth(distance, timeDiff) {
       const velocity = distance / timeDiff;
       const minLineWidth = 1;
-      const maxLineWidth = 13;
+      const maxLineWidth = 15;
       const speedFactor = 0.05; // Adjust sensitivity
       return Math.max(minLineWidth, Math.min(maxLineWidth, maxLineWidth - velocity * speedFactor));
     }
@@ -196,10 +241,11 @@
     // Touch events for mobile devices
     function getTouchPosition(e) {
       const rect = drawingCanvas.getBoundingClientRect();
+      const devicePixelRatio = window.devicePixelRatio || 1;
       const touch = e.touches[0];
       return {
-        x: touch.clientX - rect.left,
-        y: touch.clientY - rect.top
+        x: (touch.clientX - rect.left) * devicePixelRatio,
+        y: (touch.clientY - rect.top) * devicePixelRatio
       };
     }
 
@@ -215,6 +261,14 @@
     });
 
     drawingCanvas.addEventListener('touchmove', (e) => {
+      const rect = drawingCanvas.getBoundingClientRect();
+        const touch = e.touches[0];
+        const cursorX = touch.clientX - rect.left;
+        const cursorY = touch.clientY - rect.top;
+
+        // Cập nhật vị trí của customCursor
+        customCursor.style.left = `${touch.clientX}px`;
+        customCursor.style.top = `${touch.clientY}px`;
       if (!isDrawing) return;
 
       const { x, y } = getTouchPosition(e);
@@ -229,6 +283,11 @@
       if (isErasing) {
         eraseLine(x, y);
       } else {
+        const devicePixelRatio = window.devicePixelRatio || 1;
+        const canvasX = (touch.clientX - rect.left) * devicePixelRatio;
+        const canvasY = (touch.clientY - rect.top) * devicePixelRatio;
+
+        
         ctxDraw.lineTo(x, y);
         ctxDraw.strokeStyle = 'black'; // Set drawing color
         ctxDraw.lineCap = 'round';
